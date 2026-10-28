@@ -10,7 +10,9 @@
             <h3>Daftar produk</h3>
             <p>{{ $products->total() }} produk terdaftar</p>
         </div>
-        <a href="{{ route('admin.products.create') }}" class="btn">+ Tambah produk</a>
+        @if(auth()->user()->isOwner())
+            <a href="{{ route('admin.products.create') }}" class="btn">+ Tambah produk</a>
+        @endif
     </div>
 
     <div class="panel-body" style="padding-bottom:.6rem">
@@ -78,12 +80,14 @@
                         <td>
                             <div class="actions">
                                 <a href="{{ route('products.show', $product->slug) }}" target="_blank" class="btn btn-outline btn-sm">Lihat</a>
-                                <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline btn-sm">Edit</a>
-                                <form action="{{ route('admin.products.destroy', $product) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-danger btn-sm" type="submit" data-confirm="Hapus produk {{ $product->name }}?">Hapus</button>
-                                </form>
+                                @if(auth()->user()->isOwner())
+                                    <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline btn-sm">Edit</a>
+                                    <form action="{{ route('admin.products.destroy', $product) }}" method="POST">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-danger btn-sm" type="submit" data-confirm="Hapus produk {{ $product->name }}?">Hapus</button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

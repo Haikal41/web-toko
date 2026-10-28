@@ -4,7 +4,7 @@
 
 @section('content')
     <h1>Selamat datang kembali</h1>
-    <p class="muted">Masuk untuk melanjutkan belanja dan melihat pesananmu.</p>
+    <p class="muted">Masuk untuk mengelola pesanan dan toko.</p>
 
     <form action="{{ route('login.store') }}" method="POST" class="mt-2">
         @csrf
@@ -24,12 +24,11 @@
 
     <div class="alert alert-info small mt-2" style="margin-bottom:0">
         <strong>Akun demo:</strong><br>
-        Admin: admin@multiverse.test / password<br>
-        Karyawan: karyawan@multiverse.test / password<br>
-        Pembeli: pembeli@multiverse.test / password
+        Owner: owner@multiverse.test / password<br>
+        Kasir: kasir@multiverse.test / password
     </div>
 
     <div class="auth-switch">
-        Belum punya akun? <a href="{{ route('register') }}">Daftar sekarang</a>
+        Pembeli tidak perlu membuat akun. <a href="{{ route('track.index') }}">Lacak pesanan</a>
     </div>
 @endsection

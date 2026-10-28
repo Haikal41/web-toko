@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Jobs\SendOrderNotification;
 use App\Models\Coupon;
 use App\Models\Order;
+use App\Models\OrderStatusLog;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -15,9 +17,13 @@ class OrderService
 {
     public function __construct(private CartService $cart) {}
 
-    public function create(User $user, array $data): Order
+    /**
+     * @param  Collection<int, array<string, mixed>>|null  $items
+     */
+    public function create(?User $user, array $data, ?Collection $items = null): Order
     {
-        $items = $this->cart->items();
+        $fromCart = $items === null;
+        $items = $items ?? $this->cart->items();
 
         if ($items->isEmpty()) {
             throw new RuntimeException('Keranjang belanja masih kosong.');
@@ -48,20 +54,35 @@ class OrderService
         $shipping = (float) ($data['shipping_cost'] ?? 0);
         $total = max(0, $subtotal - $discount + $shipping);
 
-        $order = DB::transaction(function () use ($user, $data, $items, $subtotal, $discount, $shipping, $total, $coupon) {
+        $fulfillment = $data['fulfillment'] ?? 'delivery';
+
+        if (! in_array($fulfillment, Order::FULFILLMENTS, true)) {
+            $fulfillment = 'delivery';
+        }
+
+        $cashReceived = isset($data['cash_received']) ? (float) $data['cash_received'] : null;
+
+        if ($cashReceived !== null && $cashReceived < $total) {
+            throw new RuntimeException('Uang tunai yang diterima kurang dari total pesanan.');
+        }
+
+        $order = DB::transaction(function () use ($user, $data, $items, $subtotal, $discount, $shipping, $total, $coupon, $fulfillment) {
             $order = Order::create([
                 'order_number' => Order::generateNumber(),
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
                 'address_id' => $data['address_id'] ?? null,
                 'coupon_id' => $coupon?->id,
                 'customer_name' => $data['customer_name'],
-                'customer_phone' => $data['customer_phone'],
-                'customer_address' => $data['customer_address'],
+                'customer_phone' => $data['customer_phone'] ?? null,
+                'customer_address' => $data['customer_address'] ?? '',
                 'subtotal' => $subtotal,
                 'discount' => $discount,
                 'shipping_cost' => $shipping,
                 'total' => $total,
                 'status' => 'pending',
+                'channel' => $data['channel'] ?? 'online',
+                'fulfillment' => $fulfillment,
+                'created_by' => $data['created_by'] ?? null,
                 'notes' => $data['notes'] ?? null,
             ]);
 
@@ -73,8 +94,8 @@ class OrderService
                     'variant_name' => $item['variant']?->name,
                     'price' => $item['unit_price'],
                     'quantity' => $item['quantity'],
-                    'personalization_text' => $item['personalization_text'],
-                    'personalization_notes' => $item['personalization_notes'],
+                    'personalization_text' => $item['personalization_text'] ?? null,
+                    'personalization_notes' => $item['personalization_notes'] ?? null,
                     'subtotal' => $item['line_total'],
                 ]);
             }
@@ -87,14 +108,16 @@ class OrderService
             return $order;
         });
 
-        $this->cart->clear();
+        if ($fromCart) {
+            $this->cart->clear();
+        }
 
         return $order;
     }
 
-    public function markPaid(Order $order, array $paymentData = []): bool
+    public function markPaid(Order $order, array $paymentData = [], ?User $actor = null): bool
     {
-        $updated = DB::transaction(function () use ($order, $paymentData) {
+        $updated = DB::transaction(function () use ($order, $paymentData, $actor) {
             $order = Order::whereKey($order->id)->lockForUpdate()->first();
 
             if (! $order || $order->status !== 'pending') {
@@ -111,9 +134,21 @@ class OrderService
                 }
             }
 
+            $fromStatus = $order->status;
+
+            $cashReceived = array_key_exists('cash_received', $paymentData) && $paymentData['cash_received'] !== null
+                ? (float) $paymentData['cash_received']
+                : null;
+
+            if ($cashReceived !== null && $cashReceived < (float) $order->total) {
+                throw new RuntimeException('Uang tunai yang diterima kurang dari total pesanan.');
+            }
+
             $order->update([
                 'status' => 'paid',
                 'paid_at' => now(),
+                'cash_received' => $cashReceived,
+                'change_amount' => $cashReceived !== null ? $cashReceived - (float) $order->total : null,
             ]);
 
             $payment = $order->payments()->latest()->first() ?? $order->payments()->make();
@@ -131,6 +166,8 @@ class OrderService
                 Coupon::whereKey($order->coupon_id)->increment('used_count');
             }
 
+            $this->logStatus($order, $fromStatus, 'paid', $actor, 'Pembayaran diterima'.(! empty($paymentData['payment_type']) ? ' ('.$paymentData['payment_type'].')' : ''));
+
             return true;
         });
 
@@ -141,9 +178,9 @@ class OrderService
         return $updated;
     }
 
-    public function cancel(Order $order, ?string $reason = null): void
+    public function cancel(Order $order, ?string $reason = null, ?User $actor = null): void
     {
-        DB::transaction(function () use ($order, $reason) {
+        DB::transaction(function () use ($order, $reason, $actor) {
             $order = Order::whereKey($order->id)->lockForUpdate()->first();
 
             if (! $order || $order->status === 'batal') {
@@ -162,25 +199,56 @@ class OrderService
                 }
             }
 
+            $fromStatus = $order->status;
+
             $order->update([
                 'status' => 'batal',
-                'notes' => $reason ? trim(($order->notes ?? '')."\n".$reason) : $order->notes,
+                'cancelled_by' => $actor?->id,
+                'cancelled_at' => now(),
+                'cancel_reason' => $reason,
+                'notes' => $reason ? trim(($order->notes ?? '')."\nDibatalkan: ".$reason) : $order->notes,
             ]);
+
+            $this->logStatus($order, $fromStatus, 'batal', $actor, $reason);
         });
     }
 
-    public function updateStatus(Order $order, string $status): void
+    public function updateStatus(Order $order, string $status, ?User $actor = null, ?string $note = null): void
     {
         if (! in_array($status, Order::STATUSES, true)) {
             throw new RuntimeException('Status tidak valid.');
         }
 
         if ($status === 'batal') {
-            $this->cancel($order);
+            $this->cancel($order, $note, $actor);
 
             return;
         }
 
+        if ($status === 'paid' && $order->status === 'pending') {
+            $this->markPaid($order, [], $actor);
+
+            return;
+        }
+
+        if ($order->status === $status) {
+            return;
+        }
+
+        $fromStatus = $order->status;
         $order->update(['status' => $status]);
+
+        $this->logStatus($order, $fromStatus, $status, $actor, $note);
+    }
+
+    private function logStatus(Order $order, ?string $from, string $to, ?User $actor, ?string $note = null): void
+    {
+        OrderStatusLog::create([
+            'order_id' => $order->id,
+            'user_id' => $actor?->id,
+            'from_status' => $from,
+            'to_status' => $to,
+            'note' => $note,
+        ]);
     }
 }

@@ -13,41 +13,14 @@ class AuthenticationTest extends TestCase
     use CreatesShopData;
     use RefreshDatabase;
 
-    public function test_guest_can_register_and_is_logged_in(): void
+    public function test_registration_page_is_not_available(): void
     {
-        $response = $this->post(route('register.store'), [
-            'name' => 'Pembeli Baru',
-            'email' => 'baru@test.local',
-            'phone' => '081288888888',
-            'password' => 'rahasia123',
-            'password_confirmation' => 'rahasia123',
-        ]);
-
-        $response->assertRedirect(route('home'));
-        $this->assertAuthenticated();
-
-        $user = User::where('email', 'baru@test.local')->first();
-
-        $this->assertNotNull($user);
-        $this->assertSame('customer', $user->role);
+        $this->get('/register')->assertNotFound();
     }
 
-    public function test_registration_rejects_duplicate_email(): void
+    public function test_owner_can_login_and_is_redirected_to_dashboard(): void
     {
-        $this->customer(['email' => 'ada@test.local']);
-
-        $this->post(route('register.store'), [
-            'name' => 'Pembeli Baru',
-            'email' => 'ada@test.local',
-            'phone' => '081288888888',
-            'password' => 'rahasia123',
-            'password_confirmation' => 'rahasia123',
-        ])->assertSessionHasErrors('email');
-    }
-
-    public function test_admin_can_login_and_is_redirected_to_dashboard(): void
-    {
-        $admin = $this->admin(['email' => 'boss@test.local']);
+        $owner = $this->owner(['email' => 'boss@test.local']);
 
         $response = $this->post(route('login.store'), [
             'email' => 'boss@test.local',
@@ -55,22 +28,24 @@ class AuthenticationTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.dashboard'));
-        $this->assertAuthenticatedAs($admin);
+        $this->assertAuthenticatedAs($owner);
     }
 
-    public function test_employee_login_redirects_to_attendance(): void
+    public function test_kasir_login_redirects_to_admin_dashboard(): void
     {
-        $this->employee(['email' => 'staff@test.local']);
+        $kasir = $this->kasir(['email' => 'kasir@test.local']);
 
         $this->post(route('login.store'), [
-            'email' => 'staff@test.local',
+            'email' => 'kasir@test.local',
             'password' => 'rahasia123',
-        ])->assertRedirect(route('attendance.index'));
+        ])->assertRedirect(route('admin.dashboard'));
+
+        $this->assertAuthenticatedAs($kasir);
     }
 
     public function test_login_with_wrong_password_fails(): void
     {
-        $this->admin(['email' => 'boss@test.local']);
+        $this->owner(['email' => 'boss@test.local']);
 
         $this->post(route('login.store'), [
             'email' => 'boss@test.local',
@@ -82,7 +57,7 @@ class AuthenticationTest extends TestCase
 
     public function test_inactive_account_cannot_login(): void
     {
-        $this->admin(['email' => 'matih@test.local', 'is_active' => false]);
+        $this->owner(['email' => 'matih@test.local', 'is_active' => false]);
 
         $this->post(route('login.store'), [
             'email' => 'matih@test.local',

@@ -5,6 +5,7 @@
 
 @section('content')
 <div class="stat-grid">
+@if($isOwner)
     <div class="stat-card">
         <div class="stat-icon green">&#128176;</div>
         <div>
@@ -13,6 +14,17 @@
             <div class="stat-note">{{ $todayOrders }} pesanan dibuat hari ini</div>
         </div>
     </div>
+@else
+    <div class="stat-card">
+        <div class="stat-icon green">&#128230;</div>
+        <div>
+            <div class="stat-label">Pesanan hari ini</div>
+            <div class="stat-value">{{ $todayOrders }}</div>
+            <div class="stat-note">Transaksi masuk hari ini</div>
+        </div>
+    </div>
+@endif
+    @if($isOwner)
     <div class="stat-card">
         <div class="stat-icon purple">&#128200;</div>
         <div>
@@ -21,6 +33,7 @@
             <div class="stat-note">{{ now()->translatedFormat('F Y') }}</div>
         </div>
     </div>
+    @endif
     <div class="stat-card">
         <div class="stat-icon amber">&#9203;</div>
         <div>
@@ -39,6 +52,7 @@
     </div>
 </div>
 
+@if($isOwner)
 <div class="admin-grid-2">
     <div class="card">
         <div class="panel-head">
@@ -91,6 +105,7 @@
         </div>
     </div>
 </div>
+@endif
 
 <div class="card">
     <div class="panel-head">
@@ -99,6 +114,7 @@
             <p>8 pesanan terakhir yang masuk</p>
         </div>
         <a href="{{ route('admin.orders.index') }}" class="btn btn-outline btn-sm">Semua pesanan</a>
+        <a href="{{ route('admin.pos.create') }}" class="btn btn-sm">+ Buat Pesanan</a>
     </div>
     <div class="table-wrap" style="border:0;border-radius:0">
         <table class="table">
@@ -132,6 +148,7 @@
 @endsection
 
 @push('scripts')
+@if($isOwner)
 <script>
     const chartFont = { family: "'Plus Jakarta Sans', sans-serif" };
     const currency = (value) => 'Rp' + new Intl.NumberFormat('id-ID').format(value);
@@ -237,4 +254,5 @@
         }
     });
 </script>
+@endif
 @endpush

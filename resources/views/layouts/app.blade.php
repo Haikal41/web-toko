@@ -28,12 +28,10 @@
                 <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">Produk</a>
                 <a href="{{ route('home') }}#kategori">Kategori</a>
                 <a href="{{ route('home') }}#kenapa-kami">Kenapa Kami</a>
+                <a href="{{ route('track.index') }}" class="{{ request()->routeIs('track.*') ? 'active' : '' }}">Lacak Pesanan</a>
                 @auth
                     @if(auth()->user()->isAdmin())
                         <a href="{{ route('admin.dashboard') }}">Dashboard</a>
-                    @endif
-                    @if(auth()->user()->isKaryawan())
-                        <a href="{{ route('attendance.index') }}">Absensi</a>
                     @endif
                 @endauth
             </nav>
@@ -104,7 +102,7 @@
                 <div>
                     <h4>Bantuan</h4>
                     <a href="{{ wa_link(store_phone(), 'Halo, saya ingin bertanya tentang produk.') }}" target="_blank" rel="noopener">Chat WhatsApp</a>
-                    <a href="{{ route('account.index') }}">Pesanan Saya</a>
+                    <a href="{{ route('track.index') }}">Lacak Pesanan</a>
                     <a href="{{ route('cart.index') }}">Keranjang</a>
                 </div>
                 <div>

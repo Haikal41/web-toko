@@ -6,11 +6,15 @@
 |---|---|
 | Nama Produk | Multiverse Aksesoris |
 | Jenis Produk | Toko online (e-commerce) B2C |
-| Versi Dokumen | 1.0 |
-| Tanggal | 22 Oktober 2026 |
+| Versi Dokumen | 1.1 |
+| Tanggal | 28 Oktober 2026 |
 | Status | Final untuk MVP |
 | Stack | Laravel 11 + MySQL 8, Midtrans, Fonnte (WhatsApp), Chart.js |
 | Pemilik Dokumen | Pemilik Toko / Product Owner |
+
+> **Catatan revisi 1.1 (28 Oktober 2026):** Modul absensi karyawan dihapus. Peran diubah menjadi `owner` dan `kasir`; pembeli tidak lagi membuat akun (checkout tamu + pelacakan pesanan). Ditambahkan pesanan manual/POS, pembatalan oleh kasir, dan audit trail perubahan status.
+>
+> **Catatan revisi 1.2 (28 Oktober 2026):** Struk pembayaran thermal 80mm untuk pesanan online dan POS (termasuk uang diterima/kembalian), tautan struk publik bertanda tangan 30 hari, label kirim internal 100×150mm, serta pengiriman ulang struk via WhatsApp dengan pemisahan jenis log.
 
 ---
 
@@ -20,7 +24,7 @@
 Multiverse Aksesoris menjual produk aksesoris seperti gantungan kunci, boneka/plush, pigura, piala, dan produk sejenis. Saat ini penjualan masih dikelola secara manual sehingga pencatatan pesanan, konfirmasi pembayaran, pengelolaan stok, dan notifikasi ke pembeli memakan waktu serta rawan kesalahan.
 
 ### 1.2 Tujuan
-Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan produk (termasuk personalisasi), membayar secara online, dan menerima konfirmasi otomatis melalui WhatsApp; sekaligus memberi admin dashboard untuk mengelola produk, pesanan, laporan penjualan, dan absensi karyawan.
+Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan produk (termasuk personalisasi), membayar secara online, dan menerima konfirmasi otomatis melalui WhatsApp; sekaligus memberi owner dan kasir dashboard untuk mengelola produk, pesanan (online maupun POS), laporan penjualan, dan stok.
 
 ### 1.3 Metrik Keberhasilan (3 bulan pertama)
 | Metrik | Target |
@@ -30,7 +34,7 @@ Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan
 | Waktu konfirmasi WA setelah pembayaran sukses | < 1 menit |
 | Waktu admin memproses pesanan baru | < 5 menit |
 | Kesalahan pencatatan stok | 0 (stok berkurang otomatis) |
-| Kehadiran karyawan tercatat lengkap | ≥ 95% hari kerja |
+| Pesanan manual/POS tercatat di sistem | ≥ 90% transaksi toko |
 
 ### 1.4 Prinsip Produk
 - Mobile-first: mayoritas pembeli mengakses dari ponsel.
@@ -45,14 +49,14 @@ Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan
 ### 2.1 In-Scope (MVP)
 1. Katalog produk dengan kategori, pencarian, filter, dan indikator stok.
 2. Detail produk dengan galeri foto, varian (warna/ukuran), dan form personalisasi.
-3. Registrasi, login, profil, dan alamat pengiriman.
+3. Checkout sebagai tamu (tanpa registrasi) serta pelacakan pesanan via nomor pesanan + WhatsApp.
 4. Keranjang belanja dan checkout.
 5. Pembayaran online melalui Midtrans (QRIS, Virtual Account, e-wallet).
-6. Notifikasi WhatsApp otomatis via Fonnte setelah pembayaran sukses (pembeli dan admin).
-7. Dashboard admin: CRUD produk & foto, kelola pesanan, kelola stok, laporan penjualan.
-8. Grafik penjualan: tren penjualan, produk terlaris, volume pesanan.
-9. Absensi karyawan dengan scan QR di toko.
-10. Role akses: `admin` dan `karyawan`.
+6. Notifikasi WhatsApp otomatis via Fonnte setelah pembayaran sukses (pembeli dan owner).
+7. Dashboard operasional: CRUD produk & foto, kelola pesanan, kelola stok, laporan penjualan.
+8. Grafik penjualan: tren penjualan, produk terlaris, volume pesanan (khusus owner).
+9. Pesanan manual/POS untuk pembeli walk-in dan pembatalan pesanan dengan pengembalian stok.
+10. Role akses: `owner` (penuh) dan `kasir` (operasional pesanan/POS).
 
 ### 2.2 Out-of-Scope (MVP)
 - Marketplace multi-vendor.
@@ -68,7 +72,7 @@ Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan
 - Pembayaran hanya melalui Midtrans; tidak ada COD di MVP.
 - Ongkir flat per pesanan (nominal diatur admin).
 - Stok dikelola manual oleh admin; tidak ada multi-lokasi.
-- Nomor WhatsApp pembeli wajib diisi saat checkout.
+- Nomor WhatsApp pembeli wajib diisi saat checkout online; pesanan walk-in dari kasir boleh tanpa nomor WhatsApp.
 - Nama toko ditulis **Multiverse Aksesoris**.
 
 ---
@@ -82,37 +86,37 @@ Membangun website toko online yang memungkinkan pembeli melihat katalog, memesan
 - Butuh personalisasi nama/teks dan ingin cepat tahu pesanan diproses.
 - Sering mengakses dari ponsel.
 
-**P2 — Admin Toko**
-- Mengelola produk, stok, pesanan, dan laporan.
+**P2 — Owner**
+- Mengelola produk, stok, pesanan, laporan, pengaturan, dan akun kasir.
 - Ingin melihat performa penjualan sekilas melalui grafik.
-- Perlu memantau kehadiran karyawan.
 
-**P3 — Karyawan**
-- Staf toko yang wajib absen masuk/pulang.
-- Hanya membutuhkan akses halaman absensi dan riwayat kehadiran pribadi.
+**P3 — Kasir**
+- Staf toko yang melayani pembeli walk-in dan memproses pesanan masuk.
+- Membutuhkan akses pesanan, POS, pembatalan terbatas, dan pencetakan struk.
 
 ### 3.2 User Journey — Pembeli
 ```
 Buka website → Jelajahi katalog → Buka detail produk
 → Pilih varian + isi personalisasi → Tambah ke keranjang
-→ Checkout (isi alamat, no. WA, pilih ongkir)
+→ Checkout sebagai tamu (isi alamat, no. WA)
 → Bayar via Midtrans → Pembayaran sukses
-→ Terima notifikasi WhatsApp → Pesanan diproses admin
+→ Terima notifikasi WhatsApp → Pesanan diproses kasir
 → Pesanan dikirim → Pesanan selesai
+→ Lacak pesanan kapan saja dengan nomor pesanan + nomor WA
 ```
 
-### 3.3 User Journey — Admin
+### 3.3 User Journey — Owner
 ```
 Login → Dashboard (grafik penjualan & ringkasan)
 → Kelola produk/stok → Proses pesanan masuk
-→ Update status pesanan → Pantau absensi karyawan
+→ Update status pesanan → Lihat laporan & pengaturan
 ```
 
-### 3.4 User Journey — Karyawan
+### 3.4 User Journey — Kasir
 ```
-Login → Halaman Absensi → Scan QR toko
-→ Sistem mencatat jam masuk → (sore) scan QR lagi untuk jam pulang
-→ Lihat riwayat kehadiran pribadi
+Login → Dashboard ringkas → Daftar pesanan
+→ Buat pesanan manual/POS → Tandai tunai lunas atau kirim link QRIS
+→ Ubah status / batalkan pesanan (sampai diproses) → Cetak struk & label kirim
 ```
 
 ---
@@ -139,24 +143,24 @@ Login → Halaman Absensi → Scan QR toko
 | F-11 | Teks personalisasi tersimpan per item pesanan dan tampil di detail pesanan admin, halaman pembeli, dan template WhatsApp. | Must |
 | F-12 | Preview teks personalisasi ditampilkan sebelum ditambahkan ke keranjang. | Should |
 
-### 4.3 Akun Pengguna
+### 4.3 Akun & Akses Pembeli
 | ID | Kebutuhan | Prioritas |
 |---|---|---|
-| F-13 | Registrasi dengan nama, email, nomor WhatsApp, dan password. | Must |
-| F-14 | Login/logout dan fitur lupa password via email. | Must |
-| F-15 | Pengguna dapat menyimpan alamat pengiriman (nama penerima, telepon, alamat, kota, kode pos). | Must |
-| F-16 | Riwayat pesanan beserta status dan detail pembayaran. | Must |
-| F-17 | Pengguna dapat mengubah profil dan nomor WhatsApp. | Should |
+| F-13 | Checkout sebagai tamu tanpa registrasi: cukup nama, nomor WhatsApp, dan alamat. | Must |
+| F-14 | Login/logout untuk owner dan kasir; akun `customer` lama tetap dapat login. | Must |
+| F-15 | Pelacakan pesanan publik via nomor pesanan + nomor WhatsApp (tanpa akun). | Must |
+| F-16 | Riwayat pesanan untuk akun lama beserta status dan detail pembayaran. | Should |
+| F-17 | Owner dapat mengubah profil; kasir dikelola owner. | Should |
 
 ### 4.4 Keranjang & Checkout
 | ID | Kebutuhan | Prioritas |
 |---|---|---|
 | F-18 | Tambah, ubah jumlah, dan hapus item dari keranjang. | Must |
 | F-19 | Keranjang menyimpan varian dan teks personalisasi per item. | Must |
-| F-20 | Checkout: pilih alamat, konfirmasi nomor WhatsApp, pilih ongkir flat, ringkasan total. | Must |
+| F-20 | Checkout tamu: isi nama penerima, nomor WhatsApp, alamat, dan ringkasan total. | Must |
 | F-21 | Validasi stok ulang saat checkout; tolak jika stok tidak cukup. | Must |
-| F-22 | Kode kupon diskon (persentase/nominal) dikelola admin. | Should |
-| F-23 | Setelah checkout, pesanan dibuat dengan status `pending` dan pembeli diarahkan ke halaman pembayaran Midtrans. | Must |
+| F-22 | Kode kupon diskon (persentase/nominal) dikelola owner. | Should |
+| F-23 | Setelah checkout, pesanan dibuat dengan status `pending` dan pembeli diarahkan ke tautan pembayaran Midtrans bertanda tangan (berlaku 7 hari). | Must |
 
 ### 4.5 Pembayaran (Midtrans)
 | ID | Kebutuhan | Prioritas |
@@ -173,26 +177,35 @@ Login → Halaman Absensi → Scan QR toko
 |---|---|---|
 | F-30 | Notifikasi dikirim otomatis setelah pembayaran sukses (event `OrderPaid`). | Must |
 | F-31 | Penerima: pembeli (nomor dari checkout) dan admin (nomor dari konfigurasi). | Must |
-| F-32 | Template pembeli: nomor pesanan, daftar item + personalisasi, total, status pembayaran diterima. | Must |
-| F-33 | Template admin: nomor pesanan, nama pembeli, total, jumlah item, tautan dashboard. | Must |
+| F-32 | Template pembeli: nomor pesanan, daftar item + personalisasi, total, metode bayar, uang diterima/kembalian (tunai), status pemenuhan, dan tautan struk publik. | Must |
+| F-33 | Template admin: nomor pesanan, nama pembeli, total, jumlah item, metode bayar, pemenuhan, dan tautan pesanan. | Must |
 | F-34 | Pengiriman melalui queue job agar tidak memperlambat webhook; retry 3x dengan backoff. | Must |
-| F-35 | Setiap pengiriman dicatat di `whatsapp_logs` (penerima, status, response provider, waktu). | Must |
+| F-35 | Setiap pengiriman dicatat di `whatsapp_logs` (penerima, jenis pesan, status, response provider, waktu). | Must |
 | F-36 | Fallback email jika pengiriman WA gagal setelah retry. | Should |
-| F-37 | Tombol "Tes Kirim WA" di dashboard admin. | Should |
+| F-37 | Tombol "Tes Kirim WA" di dashboard owner. | Should |
+| F-69 | Kirim ulang struk manual dari detail pesanan; log dibedakan `payment_receipt` vs `manual_resend`. | Must |
 
-### 4.7 Dashboard Admin
+### 4.7 Dashboard Operasional
 | ID | Kebutuhan | Prioritas |
 |---|---|---|
-| F-38 | CRUD produk: nama, kategori, deskripsi, harga, stok, status personalisasi, varian. | Must |
-| F-39 | Upload beberapa foto produk; foto utama dapat dipilih; hapus foto. | Must |
-| F-40 | Daftar pesanan dengan filter status, tanggal, dan pencarian nomor pesanan. | Must |
-| F-41 | Detail pesanan: data pembeli, alamat, item, personalisasi, pembayaran, tombol ubah status. | Must |
-| F-42 | Kelola stok dan penanda stok menipis (ambang batas dapat diatur). | Must |
-| F-43 | Laporan penjualan dengan filter periode dan export CSV. | Must |
+| F-38 | CRUD produk: nama, kategori, deskripsi, harga, stok, status personalisasi, varian (khusus owner). | Must |
+| F-39 | Upload beberapa foto produk; foto utama dapat dipilih; hapus foto (khusus owner). | Must |
+| F-40 | Daftar pesanan dengan filter status, sumber (online/POS), tanggal, dan pencarian nomor pesanan. | Must |
+| F-41 | Detail pesanan: data pembeli, alamat, item, personalisasi, pembayaran, riwayat status, tombol ubah status. | Must |
+| F-42 | Kelola stok dan penanda stok menipis; kasir hanya melihat stok. | Must |
+| F-43 | Laporan penjualan dengan filter periode dan export CSV (khusus owner). | Must |
 | F-44 | Ringkasan dashboard: omzet hari ini/bulan ini, pesanan pending, stok menipis. | Must |
-| F-45 | Kelola ongkir flat dan kode kupon. | Should |
-| F-46 | Manajemen pengguna: daftar pengguna dan role. | Should |
-| F-47 | Pengaturan toko: nama, logo, nomor admin WA, jam kerja. | Should |
+| F-45 | Kelola ongkir flat dan kode kupon (khusus owner). | Should |
+| F-46 | Kelola akun kasir: tambah, ubah, nonaktifkan, hapus (khusus owner). | Must |
+| F-47 | Pengaturan toko: nama, logo, nomor admin WA (khusus owner). | Should |
+| F-63 | Kasir dapat membuat pesanan manual/POS: pilih produk/varian, personalisasi, kirim/ambil di toko, kupon, dan metode bayar. | Must |
+| F-64 | Pembayaran tunai POS langsung `paid`; QRIS menyisakan `pending` + tautan pembayaran. | Must |
+| F-65 | Kasir dapat membatalkan pesanan sampai status `diproses`; owner dapat membatalkan status apa pun. | Must |
+| F-66 | Pembatalan lunas mengembalikan stok dan mencatat pelaku, alasan, serta waktu. | Must |
+| F-67 | Setiap perubahan status dicatat di `order_status_logs` (dari/ke status, pelaku, catatan, waktu). | Must |
+| F-68 | Struk pembayaran thermal 80mm untuk pesanan online dan POS; transaksi tunai menampilkan uang diterima dan kembalian; struk POS tunai terbuka otomatis. | Must |
+| F-70 | Struk publik dapat dibuka tanpa akun melalui signed URL berlaku 30 hari, dari halaman selesai, lacak, akun, detail admin, dan WhatsApp. | Must |
+| F-71 | Label kirim internal 100×150mm (penerima, alamat, nomor pesanan, jumlah item, catatan) hanya untuk pesanan yang dikirim; bukan resi resmi kurir. | Should |
 
 ### 4.8 Grafik Penjualan
 | ID | Kebutuhan | Prioritas |
@@ -203,38 +216,39 @@ Login → Halaman Absensi → Scan QR toko
 | F-51 | Data grafik hanya dari pesanan berstatus `paid` ke atas (tidak termasuk `pending`/`batal`). | Must |
 | F-52 | Grafik responsif dan menampilkan tooltip nilai Rupiah. | Should |
 
-### 4.9 Absensi Karyawan
+### 4.9 Peran & Hak Akses
 | ID | Kebutuhan | Prioritas |
 |---|---|---|
-| F-53 | Role `admin` dan `karyawan` dengan hak akses berbeda. | Must |
-| F-54 | Admin dapat menampilkan QR absensi di dashboard; QR berisi token bertanda tangan (HMAC) dengan masa berlaku. | Must |
-| F-55 | Karyawan login lalu membuka halaman Absensi dan memindai QR menggunakan kamera ponsel. | Must |
-| F-56 | Scan pertama pada hari kerja mencatat `check_in`; scan berikutnya mencatat `check_out` setelah konfirmasi. | Must |
-| F-57 | Waktu absensi menggunakan waktu server; IP dan user agent dicatat. | Must |
-| F-58 | Status kehadiran otomatis: `hadir`, `telat`, `tidak_hadir` berdasarkan jam kerja dan toleransi. | Must |
-| F-59 | Admin dapat mengatur jam masuk, jam pulang, dan toleransi telat. | Must |
-| F-60 | Admin melihat rekap absensi harian/bulanan dan dapat export CSV. | Must |
-| F-61 | Karyawan melihat riwayat kehadiran pribadi. | Must |
-| F-62 | QR absensi memiliki masa berlaku (rotasi token) agar tidak dapat digunakan ulang di luar periode. | Must |
+| F-53 | Role `owner`: akses penuh ke dashboard omzet/grafik, pesanan, POS, laporan, katalog, kategori, kupon, kasir, dan pengaturan. | Must |
+| F-54 | Role `kasir`: dashboard ringkas, daftar/detail pesanan, POS, ubah status, batal sampai `diproses`, cetak struk, dan lihat produk/stok. | Must |
+| F-55 | Role `customer` dipertahankan untuk akun lama agar tetap bisa login dan melihat riwayat pesanan. | Should |
+| F-56 | Registrasi publik dihapus; pembeli baru menggunakan checkout tamu. | Must |
+| F-57 | Middleware role melindungi seluruh route admin; kasir mendapat 403 pada menu owner-only. | Must |
+| F-58 | Menu owner-only disembunyikan dari sidebar kasir. | Must |
 
 ---
 
-## 5. Dashboard Admin & Grafik Penjualan
+## 5. Dashboard Owner & Kasir
 
 ### 5.1 Layout Dashboard
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ Sidebar                  │ Konten Utama                  │
 │ - Dashboard              │  Kartu ringkasan:             │
-│ - Produk                 │  [Omzet Hari Ini] [Omzet     │
-│ - Pesanan                │   Bulan Ini] [Pesanan        │
-│ - Laporan                │   Pending] [Stok Menipis]    │
-│ - Absensi                │                               │
-│ - Karyawan               │  Grafik Tren Penjualan        │
-│ - Pengaturan             │  Grafik Produk Terlaris       │
-│                          │  Grafik Volume Pesanan        │
+│ - Pesanan                │  [Omzet Hari Ini] [Omzet     │
+│ - Buat Pesanan (POS)     │   Bulan Ini] [Pesanan        │
+│ - Produk (lihat stok)    │   Pending] [Stok Menipis]    │
+│                          │                               │
+│ [Owner saja]             │  Grafik Tren Penjualan        │
+│ - Kategori               │  Grafik Produk Terlaris       │
+│ - Laporan Penjualan      │  Grafik Volume Pesanan        │
+│ - Kupon                  │                               │
+│ - Kelola Kasir           │                               │
+│ - WhatsApp & Pengaturan  │                               │
 └──────────────────────────────────────────────────────────┘
 ```
+
+Kasir hanya melihat menu operasional; kartu omzet dan seluruh grafik hanya dirender untuk owner.
 
 ### 5.2 Definisi Grafik
 | Grafik | Sumbu/Parameter | Sumber Data |
@@ -253,51 +267,50 @@ Login → Halaman Absensi → Scan QR toko
 
 ---
 
-## 6. Absensi Karyawan (Scan QR)
+## 6. Pesanan Manual (POS) & Pembatalan
 
-### 6.1 Alur QR
+### 6.1 Alur Pesanan POS
 ```
-Admin membuka menu Absensi > Tampilkan QR
+Kasir membuka menu Buat Pesanan
         │
         ▼
-Server membuat token: HMAC(order_id/acak, secret) + expires_at
+Pilih produk + varian + jumlah, isi personalisasi bila wajib
         │
         ▼
-QR ditampilkan di layar dashboard (berlaku mis. 60 detik,
-dapat diperpanjang otomatis)
+Isi nama pembeli, nomor WA (opsional), pilih ambil di toko / kirim
         │
         ▼
-Karyawan login → halaman Absensi → scan QR dengan kamera
-        │
-        ▼
-Server validasi: token valid, belum kedaluwarsa, user login & role karyawan
-        │
-        ▼
-Catat check_in / check_out + IP + user agent
-        │
-        ▼
-Tampilkan konfirmasi "Absen masuk berhasil pukul 08:02 (Hadir)"
+Pilih metode bayar
+        ├── Tunai  → isi uang diterima → validasi ≥ total → pesanan `paid`,
+        │            stok berkurang, kembalian dihitung, struk 80mm auto-print
+        └── QRIS   → pesanan `pending` + tautan pembayaran untuk pembeli
 ```
 
-### 6.2 Aturan Absensi
+Setelah transaksi, kasir dapat mencetak label kirim 100×150mm dari detail
+pesanan untuk pesanan berstatus `delivery` (bukan ambil di toko). Label
+memuat penerima, alamat, nomor pesanan, jumlah item, dan catatan tanpa harga.
+Notifikasi WhatsApp hanya dikirim setelah pesanan `paid`; kasir dapat mengirim
+ulang struk secara manual dari detail pesanan.
+
+### 6.2 Aturan Pembatalan
 | Aturan | Detail |
 |---|---|
-| Jam masuk default | 08:00 |
-| Jam pulang default | 17:00 |
-| Toleransi telat | 15 menit (dapat diubah admin) |
-| Status | `hadir` (≤ batas toleransi), `telat` (> toleransi), `tidak_hadir` (tidak ada scan sampai akhir hari) |
-| Scan ganda | Scan check-in kedua pada hari yang sama diabaikan/dialihkan sebagai check-out dengan konfirmasi |
-| Masa berlaku token | 60 detik, rotasi otomatis; token lama tidak valid |
-| Hari kerja | Senin–Sabtu (dapat diatur admin) |
+| Batas kasir | Status `pending`, `paid`, atau `diproses` |
+| Batas owner | Semua status kecuali `batal` |
+| Alasan | Wajib diisi (maks. 500 karakter) |
+| Stok | Dikembalikan bila pesanan sudah masuk status pendapatan (`paid` ke atas) |
+| Audit | Pelaku, waktu, alasan, dan perubahan status disimpan |
+| Refund | Dilakukan manual di luar sistem; sistem hanya mencatat pembatalan |
 
-### 6.3 Rekap Absensi Admin
-- Tampilan tabel per bulan: nama karyawan × tanggal, dengan kode H/T/A.
-- Ringkasan per karyawan: total hadir, telat, tidak hadir.
-- Filter rentang tanggal dan export CSV.
-
-### 6.4 Batasan & Mitigasi
-- QR dapat difoto/dibagikan. Mitigasi: token berumur pendek + validasi akun login + pencatatan IP.
-- Roadmap fase 2: tambah selfie dan validasi GPS.
+### 6.3 Status Pesanan
+| Status | Arti |
+|---|---|
+| `pending` | Menunggu pembayaran (online/QRIS) |
+| `paid` | Pembayaran diterima, stok berkurang |
+| `diproses` | Pesanan sedang dikerjakan |
+| `dikirim` | Pesanan dalam pengiriman |
+| `selesai` | Pesanan diterima pembeli |
+| `batal` | Dibatalkan; stok dikembalikan bila sudah lunas |
 
 ---
 
@@ -362,9 +375,21 @@ Scenario: Notifikasi WA setelah pembayaran sukses
   Given pesanan berstatus "pending"
   When webhook Midtrans mengubah status menjadi "paid"
   Then job notifikasi WhatsApp dijalankan
-  And pembeli menerima pesan berisi nomor pesanan, item, personalisasi, dan total
-  And admin menerima pesan berisi nomor pesanan, nama pembeli, total, dan jumlah item
-  And setiap pengiriman tercatat di whatsapp_logs dengan status "sent"
+  And pembeli menerima pesan berisi nomor pesanan, item, personalisasi, total, metode bayar, dan tautan struk
+  And transaksi tunai menampilkan uang diterima dan kembalian
+  And admin menerima pesan berisi nomor pesanan, nama pembeli, total, jumlah item, dan pemenuhan
+  And setiap pengiriman tercatat di whatsapp_logs dengan status "sent" dan jenis "payment_receipt"
+
+Scenario: Kasir mengirim ulang struk
+  Given pesanan sudah "paid"
+  When kasir menekan "Kirim ulang struk"
+  Then pesan WhatsApp berisi tautan struk dikirim lagi ke pembeli
+  And log baru tercatat dengan jenis "manual_resend"
+
+Scenario: Pesanan belum lunas
+  Given pesanan berstatus "pending" atau "batal"
+  When job notifikasi dijalankan
+  Then tidak ada pesan WhatsApp yang dikirim
 
 Scenario: Pengiriman gagal
   Given provider Fonnte mengembalikan error
@@ -389,38 +414,52 @@ Scenario: Melihat produk terlaris
   Then ditampilkan 10 produk dengan unit terjual terbanyak
 ```
 
-### US-06 — Absensi karyawan
-**Sebagai** karyawan, **saya ingin** absen dengan scan QR, **agar** kehadiran tercatat tanpa mengisi form.
+### US-06 — Checkout tamu & pelacakan pesanan
+**Sebagai** pembeli, **saya ingin** checkout tanpa membuat akun dan melacak pesanan, **agar** proses belanja cepat dan status pesanan jelas.
 
 ```gherkin
-Scenario: Absen masuk berhasil
-  Given karyawan sudah login
-  And admin menampilkan QR absensi yang valid
-  When karyawan memindai QR
-  Then sistem mencatat jam masuk dengan waktu server
-  And status kehadiran dihitung "hadir" atau "telat" sesuai toleransi
+Scenario: Checkout sebagai tamu
+  Given pengunjung memiliki item di keranjang
+  When pengunjung mengisi nama, nomor WhatsApp, dan alamat lalu checkout
+  Then pesanan dibuat dengan status "pending" tanpa akun pengguna
+  And pengunjung diarahkan ke tautan pembayaran bertanda tangan
 
-Scenario: QR kedaluwarsa
-  Given token QR sudah melewati masa berlaku
-  When karyawan memindai QR tersebut
-  Then sistem menolak dengan pesan "QR kedaluwarsa, minta admin memperbarui QR"
-  And tidak ada data absensi yang tercatat
+Scenario: Melacak pesanan
+  Given pembeli mengetahui nomor pesanan dan nomor WhatsApp
+  When pembeli membuka halaman Lacak Pesanan dan mengisi keduanya
+  Then status, item, total, dan riwayat status pesanan ditampilkan
+  And nomor WhatsApp yang tidak cocok ditolak
 
-Scenario: Rekap absensi
-  Given admin membuka menu Absensi
-  When admin memilih bulan berjalan
-  Then tampil tabel kehadiran seluruh karyawan
-  And admin dapat mengunduh rekap dalam format CSV
+Scenario: Tautan pesanan tanpa tanda tangan
+  Given pengunjung membuka tautan pembayaran tanpa signature yang valid
+  Then sistem menampilkan halaman 403
 ```
 
-### US-07 — Role akses
-**Sebagai** pemilik toko, **saya ingin** membatasi akses, **agar** data penjualan hanya dilihat admin.
+### US-07 — Role akses & operasional kasir
+**Sebagai** pemilik toko, **saya ingin** membatasi akses kasir, **agar** data laporan dan pengaturan hanya dikelola owner.
 
 ```gherkin
-Scenario: Karyawan tidak dapat membuka laporan
-  Given pengguna login dengan role "karyawan"
+Scenario: Kasir tidak dapat membuka laporan
+  Given pengguna login dengan role "kasir"
   When pengguna membuka URL laporan penjualan
   Then sistem menampilkan halaman 403 Forbidden
+
+Scenario: Kasir membuat pesanan tunai
+  Given kasir membuka menu Buat Pesanan
+  When kasir memilih produk dan metode bayar "Tunai"
+  Then pesanan tercatat sebagai POS dengan status "paid"
+  And stok produk berkurang
+
+Scenario: Kasir membatalkan pesanan
+  Given pesanan berstatus "diproses"
+  When kasir mengirim pembatalan dengan alasan
+  Then pesanan menjadi "batal" dan stok dikembalikan
+  And perubahan tercatat di riwayat status
+
+Scenario: Kasir tidak dapat membatalkan pesanan terkirim
+  Given pesanan berstatus "dikirim"
+  When kasir mencoba membatalkan
+  Then sistem menampilkan 403 dan status pesanan tidak berubah
 ```
 
 ---
@@ -439,9 +478,9 @@ Scenario: Karyawan tidak dapat membuka laporan
 - Webhook Midtrans diverifikasi menggunakan signature key (`SHA512(order_id + status_code + gross_amount + server_key)`).
 - Webhook Fonnte/endpoint internal dilindungi token.
 - Kredensial (Midtrans server key, Fonnte API key) disimpan di `.env`, tidak di repository.
-- Role-based access control (middleware) untuk seluruh route admin.
-- Token QR absensi menggunakan HMAC-SHA256 dengan secret server dan masa berlaku pendek.
-- Rate limiting pada login dan endpoint absensi.
+- Role-based access control (middleware) untuk seluruh route admin; menu owner-only dipisahkan.
+- Tautan pembayaran dan halaman selesai untuk tamu menggunakan signed URL berbatas waktu (7 hari).
+- Rate limiting pada login, checkout, dan pelacakan pesanan.
 
 ### 8.3 Keandalan
 - Queue worker untuk pengiriman WhatsApp dengan retry 3x (backoff 1, 5, 15 menit).
@@ -457,7 +496,7 @@ Scenario: Karyawan tidak dapat membuka laporan
 
 ### 8.5 Kompatibilitas
 - Browser: Chrome, Safari, Edge, Firefox versi terbaru (2 versi terakhir).
-- Scan QR memerlukan akses kamera browser pada ponsel (HTTPS wajib).
+- Checkout dan pelacakan pesanan dapat digunakan tanpa aplikasi tambahan.
 
 ### 8.6 Legal & Privasi
 - Menyimpan data pribadi (nama, alamat, nomor WA) hanya untuk keperluan pesanan.
@@ -493,7 +532,7 @@ coupons 1─* orders
 | email | VARCHAR(150) UNIQUE | |
 | phone | VARCHAR(20) | Nomor WhatsApp |
 | password | VARCHAR(255) | Hash |
-| role | ENUM('admin','karyawan','customer') | Default `customer` |
+| role | VARCHAR(20) | `owner`, `kasir`, atau `customer` (akun lama). Default `customer` |
 | is_active | BOOLEAN | Default true |
 | created_at, updated_at | TIMESTAMP | |
 
@@ -559,10 +598,10 @@ coupons 1─* orders
 |---|---|---|
 | id | BIGINT PK | |
 | order_number | VARCHAR(30) UNIQUE | Mis. MVA-20261022-0001 |
-| user_id | FK users | |
-| address_id | FK addresses | |
+| user_id | FK users NULL | Kosong untuk pesanan tamu/POS |
+| address_id | FK addresses NULL | |
 | customer_name | VARCHAR(100) | Snapshot |
-| customer_phone | VARCHAR(20) | Nomor WA pembeli |
+| customer_phone | VARCHAR(20) NULL | Nomor WA pembeli; boleh kosong untuk walk-in |
 | customer_address | TEXT | Snapshot |
 | coupon_id | FK coupons NULL | |
 | subtotal | DECIMAL(12,2) | |
@@ -570,9 +609,18 @@ coupons 1─* orders
 | shipping_cost | DECIMAL(12,2) | Ongkir flat |
 | total | DECIMAL(12,2) | |
 | status | ENUM('pending','paid','diproses','dikirim','selesai','batal') | |
+| channel | VARCHAR(10) | `online` atau `pos`, default `online` |
+| fulfillment | VARCHAR(10) | `delivery` atau `pickup`, default `delivery` |
+| cash_received | DECIMAL(12,2) NULL | Uang tunai diterima (POS tunai) |
+| change_amount | DECIMAL(12,2) NULL | Kembalian = uang diterima − total |
+| created_by | FK users NULL | Kasir pembuat pesanan POS |
+| cancelled_by | FK users NULL | Pelaku pembatalan |
+| cancelled_at | TIMESTAMP NULL | |
+| cancel_reason | TEXT NULL | |
 | paid_at | TIMESTAMP NULL | |
 | notes | TEXT NULL | |
 | created_at, updated_at | TIMESTAMP | |
+| INDEX(customer_phone) | | Mempercepat pelacakan pesanan |
 
 **order_items**
 | Kolom | Tipe | Keterangan |
@@ -610,6 +658,7 @@ coupons 1─* orders
 | order_id | FK orders NULL | |
 | recipient | VARCHAR(20) | Nomor tujuan |
 | recipient_type | ENUM('customer','admin') | |
+| message_type | VARCHAR(30) | `payment_receipt` (otomatis) atau `manual_resend` |
 | message | TEXT | |
 | status | ENUM('queued','sent','failed') | |
 | provider_response | TEXT NULL | |
@@ -631,38 +680,17 @@ coupons 1─* orders
 | is_active | BOOLEAN | |
 | created_at, updated_at | TIMESTAMP | |
 
-**attendances**
+**order_status_logs**
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id | BIGINT PK | |
-| user_id | FK users | Karyawan |
-| date | DATE | |
-| check_in | TIME NULL | |
-| check_out | TIME NULL | |
-| status | ENUM('hadir','telat','tidak_hadir') | |
-| ip_address | VARCHAR(45) NULL | |
-| user_agent | VARCHAR(255) NULL | |
+| order_id | FK orders | |
+| user_id | FK users NULL | Pelaku; null untuk sistem |
+| from_status | VARCHAR(20) NULL | |
+| to_status | VARCHAR(20) | |
+| note | VARCHAR(255) NULL | Catatan/alasan |
 | created_at, updated_at | TIMESTAMP | |
-| UNIQUE(user_id, date) | | Satu record per hari |
-
-**attendance_settings**
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| id | BIGINT PK | |
-| work_start | TIME | Default 08:00 |
-| work_end | TIME | Default 17:00 |
-| late_tolerance_minutes | INT | Default 15 |
-| work_days | VARCHAR(20) | Mis. "1,2,3,4,5,6" (Senin–Sabtu) |
-| created_at, updated_at | TIMESTAMP | |
-
-**attendance_tokens**
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| id | BIGINT PK | |
-| token | VARCHAR(255) | Token acak |
-| expires_at | TIMESTAMP | |
-| created_by | FK users | Admin |
-| created_at, updated_at | TIMESTAMP | |
+| INDEX(order_id, created_at) | | Riwayat kronologis |
 
 **settings**
 | Kolom | Tipe | Keterangan |
@@ -693,9 +721,9 @@ coupons 1─* orders
 | Metode | REST API `POST https://api.fonnte.com/send` |
 | Autentikasi | Header `Authorization: <token>` |
 | Payload | `target` (nomor), `message` (teks), `delay` (opsional) |
-| Pemicu | Job `SendOrderNotification` setelah event `OrderPaid` |
+| Pemicu | Job `SendOrderNotification` setelah event `OrderPaid`; dapat dipicu ulang manual dengan `resend=true` |
 | Retry | 3x backoff (1, 5, 15 menit) |
-| Logging | Simpan request/response ringkas ke `whatsapp_logs` |
+| Logging | Simpan request/response ringkas ke `whatsapp_logs` beserta `message_type` (`payment_receipt`/`manual_resend`) |
 | Env vars | `WA_PROVIDER=fonnte`, `WA_API_KEY`, `WA_ADMIN_NUMBER`, `WA_SENDER` |
 | Risiko | Provider tidak resmi; nomor berpotensi diblokir jika spam. Mitigasi: kirim hanya transaksi, hindari broadcast masif, siap migrasi ke WhatsApp Cloud API |
 
@@ -709,6 +737,12 @@ sudah kami terima.
 Detail pesanan:
 {{daftar_item}}
 Total: Rp{{total}}
+Pembayaran: {{metode}}
+Tunai diterima: Rp{{cash_received}}   (khusus tunai)
+Kembalian: Rp{{change_amount}}        (khusus tunai)
+Pemenuhan: {{dikirim/ambil_di_toko}}
+
+Struk pembayaran (cetak/simpan): {{url_struk_signed_30_hari}}
 
 Pesanan akan segera kami proses. Terima kasih sudah berbelanja!
 ```
@@ -719,8 +753,11 @@ Pesanan baru LUNAS {{order_number}}
 Pembeli: {{nama}} ({{phone}})
 Jumlah item: {{jumlah_item}}
 Total: Rp{{total}}
+Pembayaran: {{metode}}
+Pemenuhan: {{dikirim/ambil_di_toko}}
+Tunai diterima: Rp{{cash_received}} | Kembalian: Rp{{change_amount}}
 
-Buka dashboard: {{url_dashboard}}
+Buka pesanan: {{url_admin_order}}
 ```
 
 ### 10.4 Email (fallback)
@@ -779,12 +816,13 @@ Buka dashboard: {{url_dashboard}}
 | ID | Risiko | Dampak | Mitigasi |
 |---|---|---|---|
 | R-01 | Nomor WA diblokir karena provider Fonnte tidak resmi | Notifikasi gagal | Kirim hanya pesan transaksional, retry + fallback email, rencana migrasi ke Cloud API saat volume naik |
-| R-02 | QR absensi difoto dan dipakai orang lain | Data kehadiran tidak akurat | Token berumur pendek, wajib login, catat IP; fase 2 tambah selfie/GPS |
+| R-02 | Pesanan tamu sulit dilacak jika nomor pesanan/WA salah | Pembeli tidak bisa cek status | Validasi format nomor, kirim nomor pesanan via WA, pencarian berbasis nomor pesanan + WA |
 | R-03 | Webhook Midtrans tidak diterima | Pesanan tetap pending | Sediakan halaman cek status manual + sinkronisasi status via API Midtrans |
-| R-04 | Stok tidak akurat karena penjualan offline | Overselling | Admin wajib update stok; validasi stok saat checkout; penanda stok menipis |
+| R-04 | Stok tidak akurat karena penjualan offline | Overselling | Kasir mencatat penjualan via POS; validasi stok saat checkout; penanda stok menipis |
 | R-05 | Personalisasi salah tulis oleh pembeli | Komplain/retur | Tampilkan preview + konfirmasi sebelum bayar; teks tercatat di WA dan detail pesanan |
-| R-06 | Ongkir flat tidak sesuai ongkos kirim riil | Kerugian biaya kirim | Admin menetapkan tarif konservatif; integrasi kurir di fase 2 |
+| R-06 | Ongkir flat tidak sesuai ongkos kirim riil | Kerugian biaya kirim | Owner menetapkan tarif konservatif; integrasi kurir di fase 2 |
 | R-07 | Beban grafik memperlambat dashboard | UX buruk | Agregasi server + cache hasil query 5 menit + indeks database |
+| R-08 | Kasir menyalahgunakan pembatalan | Kerugian stok/omzet | Batasi status yang bisa dibatalkan + audit trail pelaku dan alasan |
 
 ### 12.1 Asumsi Teknis
 - Server mendukung PHP 8.2+, MySQL 8, queue worker (database/redis), dan HTTPS.
@@ -796,14 +834,14 @@ Buka dashboard: {{url_dashboard}}
 ## 13. Roadmap
 
 ### Fase 1 — MVP (sesuai dokumen ini)
-Katalog, personalisasi, akun, keranjang, checkout, Midtrans, notifikasi WA setelah pembayaran, dashboard admin, grafik penjualan, absensi QR, role admin/karyawan.
+Katalog, personalisasi, checkout tamu + pelacakan pesanan, keranjang, Midtrans, notifikasi WA setelah pembayaran + tautan struk, struk thermal 80mm (online & POS), label kirim internal 100×150mm, kirim ulang struk, dashboard owner/kasir, grafik penjualan, POS, pembatalan + audit trail, role owner/kasir.
 
 ### Fase 2 — Peningkatan
-- Notifikasi WA untuk setiap perubahan status (diproses, dikirim, selesai) + template yang dapat diedit admin.
+- Notifikasi WA untuk setiap perubahan status (diproses, dikirim, selesai) + template yang dapat diedit owner.
 - Ulasan produk dan rating.
 - Wishlist.
 - Integrasi ongkir otomatis (RajaOngkir).
-- Absensi dengan selfie dan validasi GPS.
+- Akun pembeli opsional dengan poin loyalitas.
 - Kupon dan program loyalitas/poin.
 - Migrasi ke WhatsApp Cloud API resmi.
 - Laporan keuangan lanjutan (laba kotor, produk tidak laku).
@@ -824,8 +862,8 @@ Katalog, personalisasi, akun, keranjang, checkout, Midtrans, notifikasi WA setel
 | Q-02 | Kebijakan retur/penukaran, khususnya produk personalisasi? | Pemilik toko | Sebelum launch |
 | Q-03 | Logo, palet warna, dan identitas visual Multiverse Aksesoris? | Pemilik toko | Sebelum UI design |
 | Q-04 | Nomor WhatsApp admin untuk notifikasi? | Pemilik toko | Sebelum setup `.env` |
-| Q-05 | Jam kerja dan hari kerja karyawan (default Senin–Sabtu, 08:00–17:00)? | Pemilik toko | Sebelum modul absensi |
-| Q-06 | Apakah karyawan juga perlu akses memproses pesanan? | Pemilik toko | Sebelum development |
+| Q-05 | Apakah kasir boleh melihat nominal omzet harian? (Saat ini hanya owner.) | Pemilik toko | Sebelum launch |
+| Q-06 | Apakah pembatalan oleh kasir perlu persetujuan owner? | Pemilik toko | Sebelum launch |
 | Q-07 | Metode pengiriman yang tersedia (JNE, J&T, SiCepat, kurir instan)? | Pemilik toko | Fase 2 |
 | Q-08 | Apakah diperlukan invoice PDF? | Pemilik toko | Fase 2 |
 
@@ -835,10 +873,10 @@ Katalog, personalisasi, akun, keranjang, checkout, Midtrans, notifikasi WA setel
 
 | Prioritas | Fitur |
 |---|---|
-| Must | Katalog, detail produk, personalisasi, akun, keranjang, checkout, Midtrans, WA setelah pembayaran, dashboard admin, grafik penjualan, absensi QR, role |
-| Should | Kupon, fallback email, tes kirim WA, filter/urut katalog, manajemen pengguna, pengaturan toko |
+| Must | Katalog, detail produk, personalisasi, checkout tamu, pelacakan pesanan, keranjang, Midtrans, WA setelah pembayaran, dashboard owner/kasir, grafik penjualan, POS, pembatalan + audit trail, role owner/kasir |
+| Should | Kupon, fallback email, tes kirim WA, filter/urut katalog, kelola kasir, pengaturan toko |
 | Could | Preview personalisasi real-time, export laporan lanjutan, invoice PDF |
-| Won't (MVP) | Marketplace, kurir otomatis, mobile app, ulasan, wishlist, selfie/GPS absensi |
+| Won't (MVP) | Marketplace, kurir otomatis, mobile app, ulasan, wishlist, akun pembeli wajib |
 
 ## Lampiran B — Environment Variables (ringkas)
 

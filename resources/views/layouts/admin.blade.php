@@ -27,21 +27,20 @@
                 <div class="label">Utama</div>
                 <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}"><span class="ico">&#9636;</span> Dashboard</a>
                 <a href="{{ route('admin.orders.index') }}" class="{{ request()->routeIs('admin.orders.*') ? 'active' : '' }}"><span class="ico">&#128230;</span> Pesanan @if(($adminPendingCount ?? 0) > 0)<span class="nav-badge">{{ $adminPendingCount }}</span>@endif</a>
-                <a href="{{ route('admin.products.index') }}" class="{{ request()->routeIs('admin.products.*') ? 'active' : '' }}"><span class="ico">&#127873;</span> Produk</a>
-                <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}"><span class="ico">&#128193;</span> Kategori</a>
+                <a href="{{ route('admin.pos.create') }}" class="{{ request()->routeIs('admin.pos.*') ? 'active' : '' }}"><span class="ico">&#10133;</span> Buat Pesanan</a>
+                <a href="{{ route('admin.products.index') }}" class="{{ request()->routeIs('admin.products.index') ? 'active' : '' }}"><span class="ico">&#127873;</span> Produk</a>
 
-                <div class="label">Laporan</div>
-                <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"><span class="ico">&#128202;</span> Laporan Penjualan</a>
-                <a href="{{ route('admin.coupons.index') }}" class="{{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}"><span class="ico">&#127991;</span> Kupon</a>
+                @if(auth()->user()->isOwner())
+                    <div class="label">Owner</div>
+                    <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}"><span class="ico">&#128193;</span> Kategori</a>
+                    <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"><span class="ico">&#128202;</span> Laporan Penjualan</a>
+                    <a href="{{ route('admin.coupons.index') }}" class="{{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}"><span class="ico">&#127991;</span> Kupon</a>
+                    <a href="{{ route('admin.employees.index') }}" class="{{ request()->routeIs('admin.employees.*') ? 'active' : '' }}"><span class="ico">&#128101;</span> Kelola Kasir</a>
 
-                <div class="label">Karyawan</div>
-                <a href="{{ route('admin.attendance.index') }}" class="{{ request()->routeIs('admin.attendance.index') ? 'active' : '' }}"><span class="ico">&#128247;</span> Absensi & QR</a>
-                <a href="{{ route('admin.attendance.recap') }}" class="{{ request()->routeIs('admin.attendance.recap') ? 'active' : '' }}"><span class="ico">&#128198;</span> Rekap Absensi</a>
-                <a href="{{ route('admin.employees.index') }}" class="{{ request()->routeIs('admin.employees.*') ? 'active' : '' }}"><span class="ico">&#128101;</span> Data Karyawan</a>
-
-                <div class="label">Sistem</div>
-                <a href="{{ route('admin.whatsapp.index') }}" class="{{ request()->routeIs('admin.whatsapp.*') ? 'active' : '' }}"><span class="ico">&#128172;</span> WhatsApp</a>
-                <a href="{{ route('admin.settings.index') }}" class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"><span class="ico">&#9881;</span> Pengaturan</a>
+                    <div class="label">Sistem</div>
+                    <a href="{{ route('admin.whatsapp.index') }}" class="{{ request()->routeIs('admin.whatsapp.*') ? 'active' : '' }}"><span class="ico">&#128172;</span> WhatsApp</a>
+                    <a href="{{ route('admin.settings.index') }}" class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"><span class="ico">&#9881;</span> Pengaturan</a>
+                @endif
             </nav>
 
             <div class="admin-sidebar-footer">
@@ -63,7 +62,7 @@
                     <span class="avatar">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                     <div>
                         <div>{{ auth()->user()->name }}</div>
-                        <div class="tiny muted" style="font-weight:500">Administrator</div>
+                        <div class="tiny muted" style="font-weight:500">{{ auth()->user()->roleLabel() }}</div>
                     </div>
                 </div>
             </div>

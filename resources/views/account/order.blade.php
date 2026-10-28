@@ -77,6 +77,10 @@
                 @if($order->status === 'pending')
                     <a href="{{ route('checkout.payment', $order->order_number) }}" class="btn btn-block mt-2">Bayar sekarang</a>
                 @endif
+
+                @if($order->hasReceipt())
+                    <a href="{{ $order->receiptUrl() }}" class="btn btn-outline btn-block mt-2" target="_blank" rel="noopener">Cetak / simpan struk</a>
+                @endif
             </div>
 
             <a href="{{ wa_link(store_phone(), 'Halo admin, saya ingin menanyakan pesanan '.$order->order_number.'.') }}" target="_blank" rel="noopener" class="btn btn-outline btn-block">Tanya admin via WhatsApp</a>

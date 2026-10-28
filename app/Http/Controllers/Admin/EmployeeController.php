@@ -11,7 +11,7 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = User::where('role', 'karyawan')->orderBy('name')->paginate(20);
+        $employees = User::where('role', 'kasir')->orderBy('name')->paginate(20);
 
         return view('admin.employees.index', compact('employees'));
     }
@@ -30,16 +30,16 @@ class EmployeeController extends Controller
             'email' => $data['email'],
             'phone' => $data['phone'],
             'password' => $data['password'],
-            'role' => 'karyawan',
+            'role' => 'kasir',
             'is_active' => true,
         ]);
 
-        return back()->with('success', 'Karyawan berhasil ditambahkan.');
+        return back()->with('success', 'Kasir berhasil ditambahkan.');
     }
 
     public function update(Request $request, User $employee)
     {
-        abort_unless($employee->role === 'karyawan', 404);
+        abort_unless($employee->role === 'kasir', 404);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
@@ -60,14 +60,14 @@ class EmployeeController extends Controller
 
         $employee->save();
 
-        return back()->with('success', 'Data karyawan diperbarui.');
+        return back()->with('success', 'Data kasir diperbarui.');
     }
 
     public function destroy(User $employee)
     {
-        abort_unless($employee->role === 'karyawan', 404);
+        abort_unless($employee->role === 'kasir', 404);
         $employee->delete();
 
-        return back()->with('success', 'Karyawan dihapus.');
+        return back()->with('success', 'Kasir dihapus.');
     }
 }

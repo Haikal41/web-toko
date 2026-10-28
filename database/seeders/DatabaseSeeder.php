@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Attendance;
-use App\Models\AttendanceSetting;
 use App\Models\Category;
 use App\Models\Coupon;
 use App\Models\Order;
@@ -23,46 +21,33 @@ class DatabaseSeeder extends Seeder
         $this->seedCategoriesAndProducts();
         $this->seedCoupons();
         $this->seedDemoOrders();
-        $this->seedAttendance();
     }
 
     private function seedUsers(): void
     {
-        User::updateOrCreate(['email' => 'admin@multiverse.test'], [
-            'name' => 'Admin Multiverse',
+        User::updateOrCreate(['email' => 'owner@multiverse.test'], [
+            'name' => 'Owner Multiverse',
             'phone' => '081234567890',
             'password' => 'password',
-            'role' => 'admin',
+            'role' => 'owner',
             'is_active' => true,
         ]);
 
-        $employee = User::updateOrCreate(['email' => 'karyawan@multiverse.test'], [
-            'name' => 'Rina Karyawan',
+        User::updateOrCreate(['email' => 'kasir@multiverse.test'], [
+            'name' => 'Rina Kasir',
             'phone' => '081234567891',
             'password' => 'password',
-            'role' => 'karyawan',
+            'role' => 'kasir',
             'is_active' => true,
         ]);
 
-        User::updateOrCreate(['email' => 'karyawan2@multiverse.test'], [
-            'name' => 'Budi Karyawan',
+        User::updateOrCreate(['email' => 'kasir2@multiverse.test'], [
+            'name' => 'Budi Kasir',
             'phone' => '081234567892',
             'password' => 'password',
-            'role' => 'karyawan',
+            'role' => 'kasir',
             'is_active' => true,
         ]);
-
-        User::updateOrCreate(['email' => 'pembeli@multiverse.test'], [
-            'name' => 'Sari Pembeli',
-            'phone' => '081298765432',
-            'password' => 'password',
-            'role' => 'customer',
-            'is_active' => true,
-        ]);
-
-        if ($employee->attendances()->count() === 0) {
-            AttendanceSetting::current();
-        }
     }
 
     private function seedSettings(): void
@@ -281,29 +266,20 @@ SVG;
             return;
         }
 
-        $buyer = User::where('email', 'pembeli@multiverse.test')->first();
+        $cashier = User::where('email', 'kasir@multiverse.test')->first();
         $products = Product::with('variants')->active()->get();
 
-        if (! $buyer || $products->isEmpty()) {
+        if ($products->isEmpty()) {
             return;
         }
-
-        $address = $buyer->addresses()->firstOrCreate(
-            ['recipient_name' => $buyer->name],
-            [
-                'phone' => $buyer->phone,
-                'address' => 'Jl. Melati No. 12, Sukajadi',
-                'city' => 'Bandung',
-                'postal_code' => '40162',
-                'is_default' => true,
-            ]
-        );
 
         $statuses = ['selesai', 'selesai', 'dikirim', 'diproses', 'paid', 'selesai', 'dikirim', 'selesai', 'paid', 'selesai', 'diproses', 'selesai'];
 
         foreach ($statuses as $index => $status) {
             $createdAt = now()->subDays(29 - ($index * 2))->setTime(rand(9, 20), rand(0, 59));
             $items = $products->random(rand(1, 3));
+            $channel = $index % 3 === 0 ? 'pos' : 'online';
+            $shipping = $channel === 'pos' ? 0 : 15000;
 
             $subtotal = 0;
             $lines = [];
@@ -324,19 +300,27 @@ SVG;
                 ];
             }
 
-            $shipping = 15000;
+            $cashReceived = $channel === 'pos' ? $subtotal + $shipping + 5000 : null;
+
             $order = Order::create([
                 'order_number' => 'MVA-'.$createdAt->format('Ymd').'-'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
-                'user_id' => $buyer->id,
-                'address_id' => $address->id,
-                'customer_name' => $buyer->name,
-                'customer_phone' => $buyer->phone,
-                'customer_address' => $address->address.', '.$address->city.' '.$address->postal_code,
+                'user_id' => null,
+                'address_id' => null,
+                'customer_name' => $channel === 'pos' ? 'Pembeli Toko' : 'Sari Pembeli',
+                'customer_phone' => $channel === 'pos' ? null : '081298765432',
+                'customer_address' => $channel === 'pos'
+                    ? 'Ambil di toko'
+                    : 'Jl. Melati No. 12, Sukajadi, Bandung 40162',
                 'subtotal' => $subtotal,
                 'discount' => 0,
                 'shipping_cost' => $shipping,
                 'total' => $subtotal + $shipping,
                 'status' => $status,
+                'channel' => $channel,
+                'fulfillment' => $channel === 'pos' ? 'pickup' : 'delivery',
+                'cash_received' => $cashReceived,
+                'change_amount' => $cashReceived !== null ? $cashReceived - ($subtotal + $shipping) : null,
+                'created_by' => $channel === 'pos' ? $cashier?->id : null,
                 'paid_at' => $createdAt,
             ]);
 
@@ -348,39 +332,30 @@ SVG;
 
             $order->payments()->create([
                 'transaction_id' => 'DEMO-'.$order->order_number,
-                'payment_type' => collect(['qris', 'bank_transfer', 'ewallet'])->random(),
+                'payment_type' => $channel === 'pos' ? 'cash' : collect(['qris', 'bank_transfer', 'ewallet'])->random(),
                 'gross_amount' => $order->total,
                 'status' => 'settlement',
                 'paid_at' => $createdAt,
             ]);
-        }
-    }
 
-    private function seedAttendance(): void
-    {
-        $employees = User::where('role', 'karyawan')->get();
-        $setting = AttendanceSetting::current();
+            $order->statusLogs()->create([
+                'user_id' => $channel === 'pos' ? $cashier?->id : null,
+                'from_status' => 'pending',
+                'to_status' => 'paid',
+                'note' => 'Pembayaran diterima',
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
 
-        foreach ($employees as $employee) {
-            for ($i = 1; $i <= 14; $i++) {
-                $date = now()->subDays($i);
-
-                if (! $setting->isWorkDay($date->dayOfWeekIso)) {
-                    continue;
-                }
-
-                $late = rand(0, 3) === 0;
-                $checkIn = $late ? '08:'.rand(16, 45) : '0'.rand(7, 7).':'.str_pad((string) rand(30, 59), 2, '0', STR_PAD_LEFT);
-
-                Attendance::updateOrCreate(
-                    ['user_id' => $employee->id, 'date' => $date->toDateString()],
-                    [
-                        'check_in' => $checkIn,
-                        'check_out' => '17:'.str_pad((string) rand(0, 30), 2, '0', STR_PAD_LEFT),
-                        'status' => $late ? 'telat' : 'hadir',
-                        'ip_address' => '127.0.0.1',
-                    ]
-                );
+            if ($status !== 'paid') {
+                $order->statusLogs()->create([
+                    'user_id' => null,
+                    'from_status' => 'paid',
+                    'to_status' => $status,
+                    'note' => null,
+                    'created_at' => $createdAt->copy()->addHour(),
+                    'updated_at' => $createdAt->copy()->addHour(),
+                ]);
             }
         }
     }

@@ -48,8 +48,8 @@
                 <script>
                     document.getElementById('pay-button')?.addEventListener('click', function () {
                         window.snap.pay(@json($snapToken), {
-                            onSuccess: function () { window.location.href = @json(route('checkout.finish', $order->order_number)); },
-                            onPending: function () { window.location.href = @json(route('checkout.finish', $order->order_number)); },
+                            onSuccess: function () { window.location.href = @json($finishUrl); },
+                            onPending: function () { window.location.href = @json($finishUrl); },
                             onError: function () { alert('Pembayaran gagal. Silakan coba lagi.'); },
                             onClose: function () { alert('Kamu menutup jendela pembayaran sebelum menyelesaikan transaksi.'); }
                         });
@@ -61,7 +61,7 @@
                 <strong>Mode demo.</strong> Kunci Midtrans belum diisi, jadi pembayaran bisa disimulasikan untuk mencoba alur pesanan dan notifikasi WhatsApp.
             </div>
 
-            <form action="{{ route('checkout.demo', $order->order_number) }}" method="POST">
+            <form action="{{ $demoUrl }}" method="POST">
                 @csrf
                 <button class="btn btn-lg btn-block" type="submit">Simulasikan Pembayaran Berhasil</button>
             </form>
@@ -71,7 +71,11 @@
             </p>
         @endif
 
-        <a href="{{ route('account.index') }}" class="btn btn-ghost btn-block mt-2">Bayar nanti &mdash; lihat pesanan di akun</a>
+        @auth
+            <a href="{{ route('account.index') }}" class="btn btn-ghost btn-block mt-2">Bayar nanti &mdash; lihat pesanan di akun</a>
+        @else
+            <a href="{{ route('track.index') }}" class="btn btn-ghost btn-block mt-2">Bayar nanti &mdash; simpan nomor pesanan untuk dilacak</a>
+        @endauth
     </div>
 </div>
 @endsection

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Address;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\CartService;
 use App\Services\MidtransService;
 use App\Services\OrderService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 
 class CheckoutController extends Controller
@@ -26,7 +27,10 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->withErrors(['cart' => 'Keranjang Anda masih kosong.']);
         }
 
-        $addresses = auth()->user()->addresses()->orderByDesc('is_default')->get();
+        $addresses = auth()->check()
+            ? auth()->user()->addresses()->orderByDesc('is_default')->get()
+            : collect();
+
         $shipping = (float) setting('shipping_flat', 15000);
 
         return view('checkout.index', [
@@ -52,9 +56,15 @@ class CheckoutController extends Controller
             'coupon_code' => ['nullable', 'string', 'max:30'],
         ]);
 
+        $address = null;
+
         if (! empty($data['address_id'])) {
+            if (! $user) {
+                return back()->withErrors(['checkout' => 'Silakan isi alamat pengiriman.'])->withInput();
+            }
+
             $address = $user->addresses()->findOrFail($data['address_id']);
-        } else {
+        } elseif ($user) {
             $isFirst = $user->addresses()->count() === 0;
 
             $address = $user->addresses()->create([
@@ -69,30 +79,30 @@ class CheckoutController extends Controller
 
         try {
             $order = $this->orders->create($user, [
-                'address_id' => $address->id,
-                'customer_name' => $address->recipient_name,
-                'customer_phone' => $address->phone,
-                'customer_address' => trim($address->address.', '.$address->city.' '.$address->postal_code),
+                'address_id' => $address?->id,
+                'customer_name' => $address?->recipient_name ?? $data['recipient_name'],
+                'customer_phone' => $address?->phone ?? $data['phone'],
+                'customer_address' => $address
+                    ? trim($address->address.', '.$address->city.' '.$address->postal_code)
+                    : trim($data['address'].', '.$data['city'].' '.($data['postal_code'] ?? '')),
                 'shipping_cost' => (float) setting('shipping_flat', 15000),
                 'coupon_code' => $data['coupon_code'] ?? null,
                 'notes' => $data['notes'] ?? null,
+                'channel' => 'online',
             ]);
         } catch (RuntimeException $e) {
             return back()->withErrors(['checkout' => $e->getMessage()])->withInput();
         }
 
-        return redirect()->route('checkout.payment', $order->order_number);
+        return redirect()->to($this->paymentUrl($order));
     }
 
-    public function payment(string $orderNumber)
+    public function payment(Request $request, string $orderNumber)
     {
-        $order = Order::with('items')
-            ->where('user_id', auth()->id())
-            ->where('order_number', $orderNumber)
-            ->firstOrFail();
+        $order = $this->findAccessibleOrder($request, $orderNumber)->load('items');
 
         if ($order->status !== 'pending') {
-            return redirect()->route('checkout.finish', $order->order_number);
+            return redirect()->to($this->finishUrl($order));
         }
 
         $snapToken = null;
@@ -101,14 +111,17 @@ class CheckoutController extends Controller
             $snapToken = $this->midtrans->createSnapToken($order);
         }
 
-        return view('checkout.payment', compact('order', 'snapToken'));
+        return view('checkout.payment', [
+            'order' => $order,
+            'snapToken' => $snapToken,
+            'finishUrl' => $this->finishUrl($order),
+            'demoUrl' => URL::temporarySignedRoute('checkout.demo', now()->addDays(7), ['orderNumber' => $order->order_number]),
+        ]);
     }
 
     public function demoPay(Request $request, string $orderNumber)
     {
-        $order = Order::where('user_id', $request->user()->id)
-            ->where('order_number', $orderNumber)
-            ->firstOrFail();
+        $order = $this->findAccessibleOrder($request, $orderNumber);
 
         if ($this->midtrans->isConfigured() && ! app()->environment('local')) {
             abort(403, 'Pembayaran demo tidak tersedia.');
@@ -120,19 +133,56 @@ class CheckoutController extends Controller
             'gross_amount' => $order->total,
             'status' => 'settlement',
             'raw_response' => ['source' => 'demo-payment'],
-        ]);
+        ], $request->user());
 
-        return redirect()->route('checkout.finish', $order->order_number)
+        return redirect()->to($this->finishUrl($order))
             ->with('success', 'Pembayaran demo berhasil. Notifikasi WhatsApp diproses.');
     }
 
-    public function finish(string $orderNumber)
+    public function finish(Request $request, string $orderNumber)
     {
-        $order = Order::with(['items', 'payments'])
-            ->where('user_id', auth()->id())
-            ->where('order_number', $orderNumber)
-            ->firstOrFail();
+        $order = $this->findAccessibleOrder($request, $orderNumber)
+            ->load(['items', 'payments', 'statusLogs']);
 
-        return view('checkout.finish', compact('order'));
+        return view('checkout.finish', [
+            'order' => $order,
+            'paymentUrl' => $order->status === 'pending' ? $this->paymentUrl($order) : null,
+            'receiptUrl' => $order->hasReceipt() ? $order->receiptUrl() : null,
+        ]);
+    }
+
+    /**
+     * Tamu mengakses pesanan lewat signed URL. Pembeli lama yang login tetap
+     * bisa membuka pesanannya sendiri tanpa signature.
+     */
+    private function findAccessibleOrder(Request $request, string $orderNumber): Order
+    {
+        $order = Order::where('order_number', $orderNumber)->firstOrFail();
+
+        $user = $request->user();
+
+        if ($user && ($order->user_id === $user->id || $user->isAdmin())) {
+            return $order;
+        }
+
+        if ($request->hasValidSignature()) {
+            return $order;
+        }
+
+        abort(403, 'Tautan pesanan tidak valid atau sudah kedaluwarsa.');
+    }
+
+    private function paymentUrl(Order $order): string
+    {
+        return URL::temporarySignedRoute('checkout.payment', now()->addDays(7), [
+            'orderNumber' => $order->order_number,
+        ]);
+    }
+
+    private function finishUrl(Order $order): string
+    {
+        return URL::temporarySignedRoute('checkout.finish', now()->addDays(7), [
+            'orderNumber' => $order->order_number,
+        ]);
     }
 }

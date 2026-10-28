@@ -11,9 +11,6 @@
             @if($user->isAdmin())
                 <a href="{{ route('admin.dashboard') }}" class="btn btn-sm">Dashboard Admin</a>
             @endif
-            @if($user->isKaryawan())
-                <a href="{{ route('attendance.index') }}" class="btn btn-sm">Absensi Karyawan</a>
-            @endif
         </div>
     </div>
 </div>

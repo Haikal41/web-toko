@@ -1,15 +1,15 @@
 @extends('layouts.admin')
 
-@section('title', 'Data Karyawan')
-@section('crumb', 'Karyawan / Data')
+@section('title', 'Kelola Kasir')
+@section('crumb', 'Kasir / Kelola')
 
 @section('content')
 <div class="admin-grid-2">
     <div class="card">
         <div class="panel-head">
             <div>
-                <h3>Daftar karyawan</h3>
-                <p>{{ $employees->total() }} karyawan terdaftar</p>
+                <h3>Daftar kasir</h3>
+                <p>{{ $employees->total() }} kasir terdaftar</p>
             </div>
         </div>
         <div class="table-wrap" style="border:0;border-radius:0">
@@ -30,7 +30,7 @@
                                     <form action="{{ route('admin.employees.destroy', $employee) }}" method="POST">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="btn btn-ghost btn-sm" style="color:var(--red)" type="submit" data-confirm="Hapus karyawan {{ $employee->name }}?">Hapus</button>
+                                        <button class="btn btn-ghost btn-sm" style="color:var(--red)" type="submit" data-confirm="Hapus kasir {{ $employee->name }}?">Hapus</button>
                                     </form>
                                 </div>
                             </td>
@@ -40,7 +40,7 @@
                             <form action="{{ route('admin.employees.update', $employee) }}" method="POST" class="panel">
                                 @csrf
                                 @method('PUT')
-                                <h3 style="font-size:1.05rem">Edit karyawan</h3>
+                                <h3 style="font-size:1.05rem">Edit kasir</h3>
                                 <div class="field">
                                     <label class="label">Nama</label>
                                     <input class="input" name="name" value="{{ $employee->name }}" required>
@@ -65,7 +65,7 @@
                             </form>
                         </dialog>
                     @empty
-                        <tr><td colspan="5" class="text-center muted" style="padding:2.5rem">Belum ada karyawan. Tambahkan melalui form di samping.</td></tr>
+                        <tr><td colspan="5" class="text-center muted" style="padding:2.5rem">Belum ada kasir. Tambahkan melalui form di samping.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -74,8 +74,8 @@
     </div>
 
     <div class="card panel" style="align-self:start">
-        <h3 style="font-size:1.02rem">Tambah karyawan</h3>
-        <p class="tiny muted">Karyawan hanya dapat mengakses halaman absensi dan riwayat kehadiran.</p>
+        <h3 style="font-size:1.02rem">Tambah kasir</h3>
+        <p class="tiny muted">Kasir dapat mengakses pesanan, membuat pesanan manual, dan membatalkan pesanan sampai status diproses.</p>
         <form action="{{ route('admin.employees.store') }}" method="POST" class="mt-2">
             @csrf
             <div class="field">
@@ -94,8 +94,9 @@
                 <label class="label">Password</label>
                 <input type="password" class="input" name="password" required placeholder="Minimal 6 karakter">
             </div>
-            <button class="btn btn-block" type="submit">Tambah karyawan</button>
+            <button class="btn btn-block" type="submit">Tambah kasir</button>
         </form>
     </div>
 </div>
 @endsection
+

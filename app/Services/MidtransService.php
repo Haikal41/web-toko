@@ -58,7 +58,11 @@ class MidtransService
             ],
             'item_details' => $items,
             'callbacks' => [
-                'finish' => route('checkout.finish', $order->order_number),
+                'finish' => \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                    'checkout.finish',
+                    now()->addDays(7),
+                    ['orderNumber' => $order->order_number]
+                ),
             ],
         ];
 

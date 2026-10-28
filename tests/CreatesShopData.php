@@ -10,28 +10,38 @@ use Illuminate\Support\Str;
 
 trait CreatesShopData
 {
-    protected function admin(array $attributes = []): User
+    protected function owner(array $attributes = []): User
     {
         return User::create(array_merge([
-            'name' => 'Admin Toko',
-            'email' => 'admin@test.local',
+            'name' => 'Owner Toko',
+            'email' => 'owner@test.local',
             'phone' => '081200000001',
             'password' => 'rahasia123',
-            'role' => 'admin',
+            'role' => 'owner',
+            'is_active' => true,
+        ], $attributes));
+    }
+
+    protected function admin(array $attributes = []): User
+    {
+        return $this->owner($attributes);
+    }
+
+    protected function kasir(array $attributes = []): User
+    {
+        return User::create(array_merge([
+            'name' => 'Kasir Toko',
+            'email' => 'kasir@test.local',
+            'phone' => '081200000002',
+            'password' => 'rahasia123',
+            'role' => 'kasir',
             'is_active' => true,
         ], $attributes));
     }
 
     protected function employee(array $attributes = []): User
     {
-        return User::create(array_merge([
-            'name' => 'Karyawan Toko',
-            'email' => 'karyawan@test.local',
-            'phone' => '081200000002',
-            'password' => 'rahasia123',
-            'role' => 'karyawan',
-            'is_active' => true,
-        ], $attributes));
+        return $this->kasir($attributes);
     }
 
     protected function customer(array $attributes = []): User

@@ -57,16 +57,17 @@ class DashboardController extends Controller
 
         $recentOrders = Order::with('user')->latest()->take(8)->get();
 
-        return view('admin.dashboard', compact(
-            'todayRevenue',
-            'todayOrders',
-            'monthRevenue',
-            'pendingOrders',
-            'lowStock',
-            'chart',
-            'topProducts',
-            'statusCounts',
-            'recentOrders',
-        ));
+        return view('admin.dashboard', [
+            'isOwner' => auth()->user()->isOwner(),
+            'todayRevenue' => $todayRevenue,
+            'todayOrders' => $todayOrders,
+            'monthRevenue' => $monthRevenue,
+            'pendingOrders' => $pendingOrders,
+            'lowStock' => $lowStock,
+            'chart' => $chart,
+            'topProducts' => $topProducts,
+            'statusCounts' => $statusCounts,
+            'recentOrders' => $recentOrders,
+        ]);
     }
 }

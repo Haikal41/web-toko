@@ -23,8 +23,8 @@
         <div class="cart-layout">
             <div style="display:flex;flex-direction:column;gap:1.2rem">
                 <div class="card panel">
-                    <h3 style="font-size:1.05rem">Alamat pengiriman</h3>
-                    <p class="small muted">Pilih alamat tersimpan atau isi alamat baru. Nomor WhatsApp pada alamat dipakai untuk notifikasi pesanan.</p>
+                    <h3 style="font-size:1.05rem">Data pengiriman</h3>
+                    <p class="small muted">Tidak perlu membuat akun. Isi nama dan nomor WhatsApp agar kami bisa mengirim notifikasi pesanan.</p>
 
                     @if($addresses->isNotEmpty())
                         <div style="display:grid;gap:.7rem;margin:1rem 0">
@@ -65,26 +65,26 @@
                                     <input class="input" name="postal_code" value="{{ old('postal_code') }}">
                                 </div>
                             </div>
-                            <p class="help">Mengisi form ini akan menambahkan alamat baru ke akunmu.</p>
+                            <p class="help">Alamat ini akan disimpan ke akunmu untuk pesanan berikutnya.</p>
                         </details>
                     @else
                         <div class="form-grid mt-2">
                             <div class="field">
                                 <label class="label">Nama penerima</label>
-                                <input class="input" name="recipient_name" value="{{ old('recipient_name', auth()->user()->name) }}">
+                                <input class="input" name="recipient_name" required value="{{ old('recipient_name', auth()->user()?->name) }}">
                             </div>
                             <div class="field">
                                 <label class="label">Nomor WhatsApp</label>
-                                <input class="input" name="phone" value="{{ old('phone', auth()->user()->phone) }}" placeholder="08xxxxxxxxxx">
-                                <div class="help">Notifikasi pesanan dikirim ke nomor ini.</div>
+                                <input class="input" name="phone" required value="{{ old('phone', auth()->user()?->phone) }}" placeholder="08xxxxxxxxxx">
+                                <div class="help">Notifikasi dan tautan lacak pesanan dikirim ke nomor ini.</div>
                             </div>
                             <div class="field full">
                                 <label class="label">Alamat lengkap</label>
-                                <textarea class="textarea" name="address" placeholder="Jalan, nomor rumah, RT/RW, kecamatan">{{ old('address') }}</textarea>
+                                <textarea class="textarea" name="address" required placeholder="Jalan, nomor rumah, RT/RW, kecamatan">{{ old('address') }}</textarea>
                             </div>
                             <div class="field">
                                 <label class="label">Kota</label>
-                                <input class="input" name="city" value="{{ old('city') }}">
+                                <input class="input" name="city" required value="{{ old('city') }}">
                             </div>
                             <div class="field">
                                 <label class="label">Kode pos</label>

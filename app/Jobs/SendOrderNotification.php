@@ -23,26 +23,33 @@ class SendOrderNotification implements ShouldQueue
     /** @var array<int, int> */
     public array $backoff = [60, 300, 900];
 
-    public function __construct(public Order $order) {}
+    public function __construct(public Order $order, public bool $resend = false) {}
 
     public function handle(WhatsappService $whatsapp): void
     {
-        $order = $this->order->fresh(['items']);
+        $order = $this->order->fresh(['items', 'payments']);
 
-        if (! $order || $order->status === 'pending' || $order->status === 'batal') {
+        if (! $order || in_array($order->status, ['pending', 'batal'], true)) {
             return;
         }
+
+        $messageType = $this->resend
+            ? WhatsappLog::TYPE_MANUAL_RESEND
+            : WhatsappLog::TYPE_PAYMENT_RECEIPT;
 
         $messages = [
             'customer' => [
                 'recipient' => $order->customer_phone,
                 'message' => $this->customerMessage($order),
             ],
-            'admin' => [
+        ];
+
+        if (! $this->resend) {
+            $messages['admin'] = [
                 'recipient' => setting('wa_admin_number') ?: config('whatsapp.admin_number'),
                 'message' => $this->adminMessage($order),
-            ],
-        ];
+            ];
+        }
 
         $failed = false;
 
@@ -51,32 +58,45 @@ class SendOrderNotification implements ShouldQueue
                 continue;
             }
 
-            $log = WhatsappLog::firstOrCreate(
-                [
+            // Notifikasi otomatis hanya sekali per pesanan. Kirim ulang manual
+            // selalu membuat log baru agar setiap aksi tercatat.
+            $log = $this->resend
+                ? new WhatsappLog([
                     'order_id' => $order->id,
                     'recipient_type' => $type,
-                ],
-                [
+                    'message_type' => $messageType,
                     'recipient' => $whatsapp->normalizeNumber($payload['recipient']),
                     'message' => $payload['message'],
                     'status' => 'queued',
-                ]
-            );
+                ])
+                : WhatsappLog::firstOrCreate(
+                    [
+                        'order_id' => $order->id,
+                        'recipient_type' => $type,
+                        'message_type' => $messageType,
+                    ],
+                    [
+                        'recipient' => $whatsapp->normalizeNumber($payload['recipient']),
+                        'message' => $payload['message'],
+                        'status' => 'queued',
+                    ]
+                );
 
-            if ($log->status === 'sent') {
+            if ($log->exists && $log->status === 'sent') {
                 continue;
             }
 
             $result = $whatsapp->send($payload['recipient'], $payload['message']);
 
-            $log->update([
+            $log->fill([
                 'recipient' => $whatsapp->normalizeNumber($payload['recipient']),
+                'message_type' => $messageType,
                 'message' => $payload['message'],
                 'status' => $result['ok'] ? 'sent' : 'failed',
                 'provider_response' => $result['response'],
                 'attempts' => $log->attempts + 1,
                 'sent_at' => $result['ok'] ? now() : null,
-            ]);
+            ])->save();
 
             if (! $result['ok']) {
                 $failed = true;
@@ -126,18 +146,50 @@ class SendOrderNotification implements ShouldQueue
             return $line.' — Rp'.number_format((float) $item->subtotal, 0, ',', '.');
         })->implode("\n");
 
-        return "Halo {$order->customer_name}, pembayaran pesanan {$order->order_number} di Multiverse Aksesoris sudah kami terima.\n\n"
+        $message = "Halo {$order->customer_name}, pembayaran pesanan {$order->order_number} di ".store_name()." sudah kami terima.\n\n"
             ."Detail pesanan:\n{$lines}\n\n"
-            .'Total: Rp'.number_format((float) $order->total, 0, ',', '.')."\n\n"
+            .'Total: Rp'.number_format((float) $order->total, 0, ',', '.')."\n"
+            .'Pembayaran: '.$this->paymentLabel($order)."\n";
+
+        if ($order->cash_received !== null) {
+            $message .= 'Tunai diterima: Rp'.number_format((float) $order->cash_received, 0, ',', '.')."\n"
+                .'Kembalian: Rp'.number_format((float) $order->change_amount, 0, ',', '.')."\n";
+        }
+
+        $message .= 'Pemenuhan: '.$order->fulfillmentLabel()."\n\n"
+            .'Struk pembayaran (cetak/simpan): '.$order->receiptUrl()."\n\n"
             .'Pesanan akan segera kami proses. Terima kasih sudah berbelanja!';
+
+        return $message;
     }
 
     private function adminMessage(Order $order): string
     {
-        return "Pesanan baru LUNAS {$order->order_number}\n"
+        $message = "Pesanan baru LUNAS {$order->order_number}\n"
             ."Pembeli: {$order->customer_name} ({$order->customer_phone})\n"
             .'Jumlah item: '.$order->items->sum('quantity')."\n"
-            .'Total: Rp'.number_format((float) $order->total, 0, ',', '.')."\n\n"
-            .'Buka dashboard: '.route('admin.dashboard');
+            .'Total: Rp'.number_format((float) $order->total, 0, ',', '.')."\n"
+            .'Pembayaran: '.$this->paymentLabel($order)."\n"
+            .'Pemenuhan: '.$order->fulfillmentLabel();
+
+        if ($order->cash_received !== null) {
+            $message .= "\n".'Tunai diterima: Rp'.number_format((float) $order->cash_received, 0, ',', '.')
+                .' | Kembalian: Rp'.number_format((float) $order->change_amount, 0, ',', '.');
+        }
+
+        return $message."\n\n".'Buka pesanan: '.route('admin.orders.show', $order);
+    }
+
+    private function paymentLabel(Order $order): string
+    {
+        return match ($order->payment()?->payment_type) {
+            'cash' => 'Tunai',
+            'qris' => 'QRIS',
+            'demo' => 'Pembayaran demo',
+            'bank_transfer' => 'Transfer bank',
+            'ewallet' => 'E-Wallet',
+            null, '' => '-',
+            default => ucfirst(str_replace('_', ' ', (string) $order->payment()?->payment_type)),
+        };
     }
 }

@@ -34,14 +34,31 @@ class User extends Authenticatable
         ];
     }
 
-    public function isAdmin(): bool
+    public function isOwner(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'owner';
     }
 
-    public function isKaryawan(): bool
+    public function isKasir(): bool
     {
-        return $this->role === 'karyawan';
+        return $this->role === 'kasir';
+    }
+
+    /**
+     * Owner maupun kasir boleh masuk ke panel admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->isOwner() || $this->isKasir();
+    }
+
+    public function roleLabel(): string
+    {
+        return match ($this->role) {
+            'owner' => 'Owner',
+            'kasir' => 'Kasir',
+            default => 'Pembeli',
+        };
     }
 
     public function addresses(): HasMany
@@ -52,11 +69,6 @@ class User extends Authenticatable
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
-    }
-
-    public function attendances(): HasMany
-    {
-        return $this->hasMany(Attendance::class);
     }
 
     public function defaultAddress(): ?Address

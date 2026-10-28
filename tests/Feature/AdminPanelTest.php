@@ -30,10 +30,25 @@ class AdminPanelTest extends TestCase
 
     public function test_non_admin_is_forbidden_from_admin_area(): void
     {
-        $employee = $this->employee();
+        $customer = $this->customer();
 
-        $this->actingAs($employee)->get(route('admin.dashboard'))->assertForbidden();
-        $this->actingAs($this->customer())->get(route('admin.products.index'))->assertForbidden();
+        $this->actingAs($customer)->get(route('admin.dashboard'))->assertForbidden();
+        $this->actingAs($customer)->get(route('admin.products.index'))->assertForbidden();
+    }
+
+    public function test_kasir_cannot_access_owner_only_pages(): void
+    {
+        $kasir = $this->kasir();
+
+        $this->actingAs($kasir)->get(route('admin.dashboard'))->assertOk();
+        $this->actingAs($kasir)->get(route('admin.orders.index'))->assertOk();
+        $this->actingAs($kasir)->get(route('admin.pos.create'))->assertOk();
+        $this->actingAs($kasir)->get(route('admin.products.index'))->assertOk();
+
+        $this->actingAs($kasir)->get(route('admin.reports.index'))->assertForbidden();
+        $this->actingAs($kasir)->get(route('admin.settings.index'))->assertForbidden();
+        $this->actingAs($kasir)->get(route('admin.products.create'))->assertForbidden();
+        $this->actingAs($kasir)->get(route('admin.employees.index'))->assertForbidden();
     }
 
     public function test_admin_can_create_update_and_delete_product(): void
@@ -165,7 +180,7 @@ class AdminPanelTest extends TestCase
         $employee = User::where('email', 'budi@test.local')->first();
 
         $this->assertNotNull($employee);
-        $this->assertSame('karyawan', $employee->role);
+        $this->assertSame('kasir', $employee->role);
 
         $this->actingAs($admin)->put(route('admin.employees.update', $employee), [
             'name' => 'Budi Santoso',

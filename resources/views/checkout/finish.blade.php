@@ -23,11 +23,17 @@
                 <div class="status-icon wait">&#8987;</div>
                 <h2 class="display" style="font-size:1.8rem">Menunggu pembayaran</h2>
                 <p class="muted">Pesanan {{ $order->order_number }} sudah dibuat. Selesaikan pembayaran agar segera diproses.</p>
-                <a href="{{ route('checkout.payment', $order->order_number) }}" class="btn btn-lg">Lanjutkan Pembayaran</a>
+                <a href="{{ $paymentUrl }}" class="btn btn-lg">Lanjutkan Pembayaran</a>
             @elseif($order->status === 'batal')
                 <div class="status-icon" style="background:var(--red-soft)">&#10005;</div>
                 <h2 class="display" style="font-size:1.8rem">Pesanan dibatalkan</h2>
-                <p class="muted">Pesanan {{ $order->order_number }} dibatalkan. Hubungi admin bila ada pertanyaan.</p>
+                <div class="alert alert-info small mt-2" style="margin-bottom:0">
+                    @if($order->cancel_reason)
+                        Alasan pembatalan: {{ $order->cancel_reason }}
+                    @else
+                        Hubungi admin bila ada pertanyaan.
+                    @endif
+                </div>
                 <a href="{{ route('products.index') }}" class="btn">Belanja lagi</a>
             @else
                 <div class="status-icon ok">&#10003;</div>
@@ -68,9 +74,22 @@
         @endif
 
         <div class="flex gap-sm mt-3" style="justify-content:center;flex-wrap:wrap">
-            <a href="{{ route('account.order.show', $order->order_number) }}" class="btn btn-outline">Lihat di akun</a>
+            @if($receiptUrl)
+                <a href="{{ $receiptUrl }}" class="btn btn-outline" target="_blank" rel="noopener">Cetak / simpan struk</a>
+            @endif
+            @auth
+                <a href="{{ route('account.order.show', $order->order_number) }}" class="btn btn-outline">Lihat di akun</a>
+            @else
+                <a href="{{ route('track.index') }}" class="btn btn-outline">Lacak pesanan</a>
+            @endauth
             <a href="{{ route('products.index') }}" class="btn">Belanja lagi</a>
         </div>
+
+        @guest
+            <div class="alert alert-info small mt-2" style="margin-bottom:0">
+                Simpan nomor pesanan <strong>{{ $order->order_number }}</strong> dan nomor WhatsApp yang kamu gunakan untuk melacak pesanan kapan saja.
+            </div>
+        @endguest
     </div>
 </div>
 @endsection
